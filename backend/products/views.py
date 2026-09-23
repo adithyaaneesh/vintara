@@ -6,8 +6,8 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
 
-from .models import Category, Product
-from .serializers import CategorySerializer, ProductSerializer
+from .models import Category, Product, ProductImage
+from .serializers import CategorySerializer, ProductSerializer, ProductImageSerializer
 
 
 @api_view(['GET', 'POST'])
@@ -92,6 +92,59 @@ def product_detail(request, pk):
         product.delete()
         return Response(
             {'message': 'Product deleted successfully'},
-            status=status.HTTP_200_OK
+            status=status.HTTP_200_OK)
+
+@api_view(['GET', 'POST'])
+def product_image_list(request):
+
+    if request.method == 'GET':
+
+        images = ProductImage.objects.all()
+
+        serializer = ProductImageSerializer(
+            images,
+            many=True
         )
 
+        return Response(serializer.data)
+
+    elif request.method == 'POST':
+
+        serializer = ProductImageSerializer(
+            data=request.data
+        )
+
+        if serializer.is_valid():
+
+            serializer.save()
+
+            return Response(
+                serializer.data,
+                status=status.HTTP_201_CREATED
+            )
+
+        return Response(
+            serializer.errors,
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+@api_view(['DELETE'])
+def product_image_delete(request, pk):
+
+    try:
+        image = ProductImage.objects.get(pk=pk)
+
+    except ProductImage.DoesNotExist:
+
+        return Response(
+            {'error': 'Image not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    image.delete()
+
+    return Response(
+        {'message': 'Image deleted successfully'},
+        status=status.HTTP_204_NO_CONTENT
+    )
