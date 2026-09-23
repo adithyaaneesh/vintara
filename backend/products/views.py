@@ -9,6 +9,8 @@ from rest_framework import status
 from .models import Category, Product, ProductImage
 from .serializers import CategorySerializer, ProductSerializer, ProductImageSerializer
 
+from django.core.paginator import Paginator
+
 
 @api_view(['GET', 'POST'])
 def category_list(request):
@@ -43,27 +45,118 @@ def category_detail(request, pk):
         category.delete()
         return Response({'message': 'Category deleted successfully'},status=status.HTTP_200_OK)
 
-
 @api_view(['GET', 'POST'])
 def product_list(request):
+
     if request.method == 'GET':
-        products = Product.objects.all()
+
+        products = Product.objects.all().order_by(
+            '-created_at'
+        )
+
+        # Search
         search = request.GET.get('search')
-        category = request.GET.get('category')
+
         if search:
-            products = products.filter(name__icontains=search)
+            products = products.filter(
+                name__icontains=search
+            )
+
+        # Category
+        category = request.GET.get('category')
+
         if category:
-            products = products.filter(category_id=category)
-        serializer = ProductSerializer(products,many=True)
-        return Response(serializer.data)
+            products = products.filter(
+                category_id=category
+            )
+
+        # Size
+        size = request.GET.get('size')
+
+        if size:
+            products = products.filter(
+                size=size
+            )
+
+        # Condition
+        condition = request.GET.get('condition')
+
+        if condition:
+            products = products.filter(
+                condition=condition
+            )
+
+        # Minimum price
+        min_price = request.GET.get('min_price')
+
+        if min_price:
+            products = products.filter(
+                price__gte=min_price
+            )
+
+        # Maximum price
+        max_price = request.GET.get('max_price')
+
+        if max_price:
+            products = products.filter(
+                price__lte=max_price
+            )
+
+        # Pagination
+        page_number = request.GET.get('page', 1)
+
+        paginator = Paginator(
+            products,
+            10
+        )
+
+        page_obj = paginator.get_page(
+            page_number
+        )
+
+        serializer = ProductSerializer(
+            page_obj,
+            many=True
+        )
+
+        return Response({
+            'count': paginator.count,
+            'total_pages': paginator.num_pages,
+            'current_page': page_obj.number,
+            'next_page': (
+                page_obj.next_page_number()
+                if page_obj.has_next()
+                else None
+            ),
+            'previous_page': (
+                page_obj.previous_page_number()
+                if page_obj.has_previous()
+                else None
+            ),
+            'results': serializer.data
+        })
+
     elif request.method == 'POST':
-        serializer = ProductSerializer(data=request.data)
+
+        serializer = ProductSerializer(
+            data=request.data
+        )
+
         if serializer.is_valid():
+
             serializer.save()
-            return Response(serializer.data,status=status.HTTP_201_CREATED)
-        return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
 
+            return Response(
+                serializer.data,
+                status=status.HTTP_201_CREATED
+            )
 
+        return Response(
+            serializer.errors,
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    
 @api_view(['GET', 'PUT', 'DELETE'])
 def product_detail(request, pk):
     try:
